@@ -1,0 +1,1204 @@
+---
+title: "02_ruth_analysis"
+output: html_notebook
+---
+
+# 1. Setting Up
+
+The following packages should be installed and imported before running the code in this document:
+
+```{r setup, message=FALSE, warning=FALSE}
+rm(list = ls())
+options(scipen = 999)
+
+if (!require("pacman")) install.packages("pacman"); 
+library(pacman)
+pacman::p_load(tidyverse, dplyr, ggplot2, Hmisc, psych, likert, rstatix, ggpubr, lm.beta, PupillometryR, effsize, DescTools, ggthemr, rstatix)
+
+
+```
+
+
+# 2. Importing the Clean Data
+
+```{r}
+data <- readRDS("clean_data/clean_data.rds")
+```
+
+# 3. Understanding the Data
+
+## user dataframe
+
+```{r}
+user_df <- data %>% 
+  filter(user_type =="user") %>% 
+  select(c(user_type, study_year, gender, age, smartphone_ownership, phone_minutes,  fitness_app_use, mental_app_use, awareness_of_apps, characterise_use, 
+# Q11 & Q12           
+apps_used,  features_used,  
+# Q13
+integration_integration_frequency_, integration_integration_integrated_,  integration_integration_rely_,  integration_integration_continue_,  
+# Q14
+motivation_motivation_info_seeking_1_,  motivation_motivation_info_seeking_2_,  motivation_motivation_info_seeking_3_,  motivation_motivation_info_seeking_4_,  motivation_motivation_neg_outcomes_1_,  motivation_motivation_neg_outcomes_2_,  motivation_motivation_neg_outcomes_3_,  motivation_motivation_neg_outcomes_4_,  motivation_motivation_align_1_, motivation_motivation_align_2_, motivation_motivation_align_3_, motivation_motivation_align_4_, motivation_motivation_change_1_,  motivation_motivation_change_2_,  motivation_motivation_change_3_,  motivation_motivation_change_4_,  
+# Q15
+outcomes_value_of_data_,  outcomes_value_for_change_, outcomes_value_for_goals_,  
+# Averages
+integration, mot_info_seeking, mot_neg_outcomes, mot_align,  mot_change 
+))
+
+head(user_df, 5)
+```
+
+## non-user dataframe
+
+```{r}
+non_user_df <- data %>% 
+  filter(user_type =="non-user") %>% 
+  select(c(user_type, study_year, gender, age, smartphone_ownership, phone_minutes,  fitness_app_use, mental_app_use, awareness_of_apps, characterise_use, 
+# Q16           
+non_users_use_intention, 
+# Q17
+non_motivation_non_motivation_info_seeking_1_,  non_motivation_non_motivation_info_seeking_2_,  non_motivation_non_motivation_info_seeking_3_,  non_motivation_non_motivation_info_seeking_4_,  non_motivation_non_motivation_neg_outcomes_1_,  non_motivation_non_motivation_neg_outcomes_2_,  non_motivation_non_motivation_neg_outcomes_3_,  non_motivation_non_motivation_neg_outcomes_4_,  non_motivation_non_motivation_align_1_, non_motivation_non_motivation_align_2_, non_motivation_non_motivation_align_3_, non_motivation_non_motivation_align_4_, non_motivation_non_motivation_change_1_, non_motivation_non_motivation_change_2_,  non_motivation_non_motivation_change_3_, non_motivation_non_motivation_change_4_,  
+# Averages
+non_mot_info_seeking, non_mot_neg_outcomes, non_mot_align,  non_change
+))
+
+head(non_user_df, 5)
+```
+
+
+#RQ1
+
+#Users vs Non Users
+```{r}
+data %>% group_by(user_type) %>% 
+  summarise(n=n()) %>% mutate(percentage = n/sum(n)*100)
+
+```
+
+#Types of users
+```{r}
+
+data %>% 
+  group_by(characterise_use) %>% 
+  summarise(n=n()) %>% mutate(percentage = n/sum(n)*100)
+```
+
+#Awareness
+```{r}
+data %>% 
+  group_by(awareness_of_apps) %>% 
+  summarise(n=n()) %>% mutate(percentage = n/sum(n)*100)
+
+```
+
+
+#devices used
+```{r}
+
+data %>% 
+  group_by(smartphone_ownership) %>% 
+  summarise(n=n())
+```
+
+
+#Gender
+```{r}
+
+data_gender <- data %>% 
+  group_by(gender) %>% 
+  count()
+data_gender
+
+data_gender <- data_gender %>% mutate(gender = fct_recode(gender, "Other Descriptors" = "other_descriptors", "Female" = "female", "Male" = "male"))
+
+library(plotly)
+q <- plot_ly(data_gender, labels = ~gender, values = ~n, type = 'pie') %>%
+  layout(title = "Gender of data",          
+         xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
+         yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
+q
+```
+
+
+#Age
+```{r}
+data %>% 
+  summarise(m = mean(age),
+            sd = sd(age))
+```
+
+
+#Type of apps
+```{r}
+
+data %>% 
+  group_by(fitness_app_use, mental_app_use) %>% 
+  summarise(n=n())
+```
+
+
+
+# Does gender predict awareness?
+
+```{r fig.height=6, fig.width=6}
+#Only 2 variables
+
+ require(moonBook)
+ require(webr)
+ 
+data_only_mf <- data %>% 
+  filter(gender =="male" | gender == "female") 
+
+x=chisq.test(data_only_mf$gender, data_only_mf$awareness_of_apps, correct=FALSE)
+x
+plot(x)
+```
+
+
+```{r}
+data_only_mf %>% 
+  group_by(awareness_of_apps) %>% 
+  summarise(n=n(), m = mean(age),
+            sd = sd(age))
+
+```
+
+# Does gender predict use?
+```{r fig.height=6, fig.width=6}
+
+# df = num of categories -1
+# alpha - 0.05
+
+genderuse=chisq.test(data_only_mf$gender, data_only_mf$user_type, correct=FALSE)
+genderuse
+plot(genderuse)
+
+data_only_mf %>% 
+  group_by(gender, user_type) %>% 
+  summarise(n=n()) %>% mutate(percentage = n/sum(n)*100)
+```
+
+#Gender and user type mean and sd
+```{r}
+data_only_mf %>% 
+  group_by(gender, user_type) %>% 
+  summarise(n=n(), m = mean(age),
+            sd = sd(age)) %>% 
+  mutate(perc = n/sum(n)*100)
+
+```
+
+# User type age mean and sd
+```{r}
+data_only_mf %>% 
+  group_by(user_type) %>% 
+  summarise(n=n(), m = mean(age),
+            sd = sd(age)) %>% 
+  mutate(perc = n/sum(n)*100)
+```
+
+
+#Gender and awareness
+```{r}
+data %>% 
+  group_by(gender, awareness_of_apps) %>% 
+  summarise(n=n()) %>% 
+  mutate(perc = n/sum(n)*100)
+
+
+```
+
+# Age predict awareness?
+
+```{r}
+#cohen d - practical difference
+#0.5-0.8 medium
+#0.8+ large
+# effect size, strength of any relationship (through a correlation coefficient), and confidence intervals...
+
+data %>% t_test(age ~ awareness_of_apps) %>% 
+  add_significance()
+
+effsize::cohen.d(age ~ awareness_of_apps, data = data)
+
+stat_test <- data %>%
+  t_test(age ~ awareness_of_apps, detailed = TRUE) %>%
+  add_significance()
+
+data
+
+# Create a box-plot
+bxp <- ggboxplot(
+  data, x = "awareness_of_apps", y = "age", 
+  ylab = "Age", xlab = "Awareness", add = "jitter"
+  )
+bxp
+
+
+# stat_test <- stat_test %>% add_xy_position(x = "awareness_of_apps")
+# bxp + 
+#   stat_pvalue_manual(stat.test, tip.length = 0) +
+#   labs(subtitle = get_test_label(stat_test, detailed = TRUE))
+
+```
+
+#Theme
+```{r}
+themer_colours <- c( "#2a4d69", "#bf111d", "#111111", "#65ADC2", "#233B43", "#C29365", "#362C21", "#168E7F", "#109B37")
+# you have to add a colour at the start of your palette for outlining boxes, we'll use a grey:
+themer_colours <- c("#555555", themer_colours)
+# remove previous effects:
+ggthemr_reset()
+# Define colours for your figures with define_palette
+themer <- define_palette(
+ swatch = themer_colours, # colours for plotting points and bars
+ gradient = c(lower = themer_colours[1L], upper = themer_colours[2L]), #upper and lower colours for continuous colours
+ background = "#EEEEEE" #defining a grey-ish background 
+ 
+)
+# set the theme for your figures:
+ggthemr(themer)
+
+```
+
+
+
+# Age predict awareness?
+```{r}
+
+raincloud_plot <- data %>% 
+# Line graph
+  ggplot(aes( x = awareness_of_apps, y = age, fill=awareness_of_apps)) +
+  geom_flat_violin(position = position_nudge(x = .2, y = 0), alpha = 1) +
+  geom_point(aes(y = age, color = awareness_of_apps), position = position_jitter(width = .15), size = .5, alpha = 0.8) + 
+# Box Plot
+  geom_boxplot(width = .2, guides = FALSE, outlier.shape = NA, alpha = 0.5) +
+# Visual manipulations
+  expand_limits(x = 3, y = 16) + 
+  guides(fill = FALSE) +
+  labs(x = "Awareness of Apps", y = "Age", title = "Difference of awareness by age", subtitle = "")+
+  guides(color=FALSE)+
+  coord_flip()+
+  theme_bw()+
+    theme(axis.text=element_text(size=13),axis.title=element_text(size=14), plot.title = element_text(size = 16))
+
+raincloud_plot
+   # ggsave("figures/raincloud1.png", raincloud_plot, width =8, height=6, dpi=1400, units="in", device="png")
+
+```
+
+
+# age predict use?
+```{r }
+raincloud_plot2<- data %>% 
+# Line graph
+  ggplot(aes( x = user_type, y = age, fill=user_type)) +
+  geom_flat_violin(position = position_nudge(x = .2, y = 0), alpha = 1) +
+  geom_point(aes(y = age, color = user_type), position = position_jitter(width = .15), size = .5, alpha = 0.8) + 
+# Box Plot
+  geom_boxplot(width = .2, guides = FALSE, outlier.shape = NA, alpha = 0.5) +
+# Visual manipulations
+  expand_limits(x = 3, y = 16) + 
+  guides(fill = FALSE) +
+  labs(x = "User Type", y = "Age", title = "Difference of user type by age", subtitle = "")+
+  guides(color=FALSE)+
+  coord_flip() +
+  theme_bw()+
+     theme(axis.text=element_text(size=13),axis.title=element_text(size=14), plot.title = element_text(size = 16))
+
+raincloud_plot2
+ # ggsave("figures/raincloud2.png", raincloud_plot2, width =8, height=6, dpi=1400, units="in", device="png")
+
+
+```
+
+
+
+#Combine fgure
+```{r}
+
+facetwrapplot<- raincloud_plot / raincloud_plot2
+
+facets <- facetwrapplot + 
+  plot_annotation(tag_levels="A") +
+  plot_layout(guides = "collect") &
+  theme(legend.position = "bottom")
+
+# ggsave("figures/facet.png", facets, width =10, height=8, dpi=1200, units="in", device="png")
+```
+
+
+
+```{r}
+
+#Initial table creation with phone_minutes and user_type
+user_type_minutes <- data %>% 
+  group_by(user_type) %>% 
+  select(c(user_type, phone_minutes))
+
+head(user_type_minutes)
+```
+
+
+```{r}
+
+data %>% t_test(age ~ user_type) %>% 
+  add_significance()
+effsize::cohen.d(age ~ user_type, data = data)
+```
+
+# YOS predict awareness
+```{r}
+data_yos <- data %>% 
+  mutate(study_year = fct_recode(study_year, 
+                                 "more" = "4th_year",
+                                 "more" = "5th_year",
+                                 "more" = "6th_year",
+                                 "more" = "other")) 
+
+chisq.test(data_yos$study_year, data_yos$awareness_of_apps, correct=FALSE)
+CramerV(data_yos$study_year, data_yos$awareness_of_apps)
+
+```
+
+
+
+
+# YOS predict use
+```{r}
+chisq.test(data_yos$study_year, data_yos$user_type, correct=FALSE)
+DescTools::CramerV(data_yos$study_year, data_yos$user_type)
+
+rm(data_yos)
+```
+#Use of fitness predict awareness
+```{r}
+data %>% 
+  group_by(fitness_app_use) %>% 
+  summarise(n=n()) %>% 
+  mutate(perc = n/sum(n)*100)
+```
+
+
+#User type and fitness app use
+```{r}
+data %>% 
+  group_by(user_type, fitness_app_use) %>% 
+  summarise(n=n()) %>% 
+  mutate(perc = n/sum(n)*100)
+```
+
+#User Type and Mental app use
+```{r}
+data %>% 
+  group_by(user_type, mental_app_use) %>% 
+  summarise(n=n()) %>% 
+  mutate(perc = n/sum(n)*100)
+```
+
+#Awareness of fitness apps 
+```{r}
+chisq.test(data$awareness_of_apps, data$fitness_app_use, correct=FALSE)
+DescTools::Phi(data$awareness_of_apps, data$fitness_app_use)
+```
+#Use of fitness predict use
+```{r}
+chisq.test(data$user_type, data$fitness_app_use, correct=FALSE)
+DescTools::Phi(data$user_type, data$fitness_app_use)
+```
+#Use of mental health predict awareness?
+```{r}
+chisq.test( data$mental_app_use, data$awareness_of_apps, correct=FALSE)
+DescTools::Phi(data$awareness_of_apps, data$mental_app_use)
+```
+#Use of mental health predict use
+```{r}
+chisq.test( data$mental_app_use, data$user_type, correct=FALSE)
+DescTools::Phi(data$user_type, data$mental_app_use)
+```
+
+
+
+#Device type predict awareness?
+```{r}
+chisq.test(data$smartphone_ownership, data$awareness_of_apps, correct=FALSE)
+```
+
+#Device type predict use?
+```{r}
+chisq.test(data$smartphone_ownership, data$user_type, correct=FALSE)
+```
+
+#Ownership of phone vs user type
+```{r}
+data %>% 
+  group_by(smartphone_ownership, user_type) %>% 
+  summarise(n=n()) %>% 
+  mutate(perc = n/sum(n)*100)
+```
+
+
+#RQ2: Which applications and features are most commonly used to support efforts to achieve digital wellbeing? [come back to...]
+
+```{r}
+data$apps_used <- gsub('\\s+', '', data$apps_used)
+
+apps_q2<- data %>% 
+  filter(user_type =="user") %>% 
+  mutate(apps_used = strsplit(as.character(apps_used), ",")) %>%
+  unnest(apps_used)
+```
+
+### Clean up user-supplied values
+```{r}
+apps_q2 <- apps_q2 %>% 
+  filter(!(smartphone_ownership == "android" & apps_used =="iOS_ST")) %>% 
+  mutate(apps_used = fct_recode(apps_used,
+                                "iOS Screen Time" = "ScreenTime",
+                                "iOS Screen Time" = "screentime(insettings)",
+                                "iOS Screen Time" = "iPhoneScreenTime",
+                                "iOS Screen Time" = "Apple’sweeklyScreentimerevuesanddailylimitsthatyoucanset.",
+                                "iOS Screen Time" = "iOS_ST",
+                                "iOS Screen Time" = "IOSDOWNTIME",
+                                "Forest:Stay Focused" = "forest",
+                                "Forest:Stay Focused" = "butusedasafocustimer-usedtouseForest)",
+                                "Forest:Stay Focused" = "Forest",
+                                "Android Digital Wellbeing" = "Android_DW",
+                                "AppBlock" = "appblock",
+                                "Focus Lock" = "focus_lock",
+                                "Moment" = "moment",
+                                "Unplugged" = "unplugged",
+                                "Flipd" = "flipd",
+                                "AntiSocial" = "antisocial",
+                                "Cold Turkey" = "cold_turkey",
+                                "Other" = "Bixby",
+                                "Other" = "BrainFocus",
+                                "Other" = "Bluelightfilter",
+                                "Other" = "donotdisturb",
+                                "Other" = "Wysa;DreamingFox",
+                                "Huawei Digital Balance" = "HuaweiHealth",
+                                "Huawei Digital Balance" = "HuaweiHealth",
+                                "Huawei Digital Balance" = "Huaweihealth",
+                                "Huawei Digital Balance" = "balance",
+                                "Other" = "FishCure",
+                                "Other" = "Screentimer",
+                                "Other" = "InsightTimer",
+                                "Other" = "Calm",
+                                "Other" = "PomodoroTimer",
+                                "Other" = "Usagetime",
+                                "Other" = "Screentimer",
+                                "Other" = "Freedom",
+                                "Other" = "FocusPlus",
+                                "Other" = "MyAnalytics",
+                                "Other" = "Focustodo",
+                                "Other" = "SelfControl",
+                                "Other" = "StayFocused",
+                                "Other" = "Tide",
+                                "Other" = "AppUsage-Manage/TrackUsage",
+                                "Other" = "Bakery",
+                                "Other" = "FocusKeeper(Doesnotblockphoneuse",
+                                "Other" = "FocusTimer",
+                                "Other" = "PlantNanny",
+                                "Other" = "MsLaunchermeasurementfeature",
+                                "Other" = "iOSscreentimeonipad.Noneoncellphone.",
+                                "App Specific" = "Youtubevideotimereminder",
+                                "App Specific" = "YouTube",
+                                "App Specific" = "facebookandpintrest",
+                                "App Specific" = "Facebook",
+                                "App Specific" = "Instagram",
+                                "App Specific" = "Instagramalertsmeifispendmorethan1hourperdayonit",
+                                "App Specific" = "Instagramscreentime",
+                                "App Specific" = "twitter",
+                                "App Specific" = "Microsoftoffice",
+                                "App Specific" = "whatsapp",
+                                "App Specific" = "instagram",
+                                "App Specific" = "Instagram-mentalhealthpagesetc",
+                                "App Specific" = "BuiltininstagramandYouTuberestrictions",
+                                "App Specific" = "facebookandpintrest")) %>% 
+  filter(!apps_used == "ThetimelimitfunctiononaniPhone.") %>% 
+  filter(!apps_used == "None") %>% 
+  filter(!apps_used == "Ihaveneverusedanyoftheabove.") %>% 
+  filter(!apps_used =="Dua") %>% 
+  filter(!apps_used =="Turningmyphoneoff/disconnectingdata") 
+# %>% 
+  # filter(!apps_used =="iOS Screen Time" & !smartphone_ownership =="android")
+
+```
+
+
+```{r}
+apps_q2 %>% 
+  group_by(apps_used) %>% 
+  summarise(n=n()) %>% 
+  mutate(perc = n/sum(n)*100) %>% 
+  arrange(desc(perc)) #proportion of apps...
+
+#proportion of users
+apps_q2 %>% 
+  group_by(apps_used) %>% 
+  summarise(n=n()) %>% 
+  mutate(perc = n/683*100) %>% 
+  arrange(desc(perc)) 
+
+apps_q2 %>% 
+  group_by(apps_used, smartphone_ownership) %>% 
+  summarise(n=n()) %>% 
+  mutate(perc = n/683*100) %>% 
+  arrange(desc(perc)) 
+```
+
+
+
+```{r}
+data$features_used <- gsub('\\s+', '', data$features_used)
+
+features<- data %>% 
+  filter(user_type =="user") %>% 
+  mutate(features_used = strsplit(as.character(features_used), ",")) %>%
+  unnest(features_used) %>% 
+  filter(!is.na(features_used)) %>% 
+  filter(!features_used %in% c("Totakeabreakmyschoolwork", "Productivityandcollaboration"))  %>% 
+  mutate(features_used = fct_recode(features_used,
+                                    "checking_daily_overall" = "ForestScreentimetracking",
+                                    "weekly_report_overall" = "Comparisontopreviousweek",
+                                    "Other" = "Changingmyscreentogreyscale",
+                                    "Other" = "Ionlyhavethe‘badges’notificationson.Nosoundortuneisenabledexceptaringtoneforwhensomeonecalls.",
+                                    "Other" = "DoNotDisturb",
+                                    "Other" = "disablingmobiledataandwifi",
+                                    "Other" = "Avoidgoinginspecificapps",
+                                    "Other" = "IusetheactivityfunctiononinstagramtocheckandlimithowmuchtimeIspendontheapp"))
+
+```
+
+#Update features and their names for graph 
+```{r}
+features <- features %>% 
+  mutate(features_used = fct_recode(features_used,
+                                    "Weekly report on overall usage" = "weekly_report_overall",
+                                    "Disabling notifications" = "disabling_notifications",
+                                    "Weekly report on application categories" = "weekly_report_category",
+                                    "Checking daily overall usage" = "checking_daily_overall",
+                                    "Timers restricting access to specific applications" = "timer_app_access",
+                                    "Weekly report on specific application usage" = "weekly_report_specific",
+                                    "Timers restricting device access" = "timer_device_access",
+                                    "Checking daily usage of specific applications" = "checking_daily_specific",
+                                    "Blocking specific applications" = "blocking_apps"))
+```
+
+
+```{r}
+#features
+features %>% 
+  group_by(features_used) %>% 
+  summarise(n=n()) %>% 
+  mutate(perc = n/sum(n)*100) %>% 
+  arrange(desc(perc)) 
+
+#users
+features %>% 
+  group_by(features_used) %>% 
+  summarise(n=n()) %>% 
+  mutate(perc = n/683*100) %>% 
+  arrange(desc(perc))
+```
+
+#Applications used
+```{r}
+
+apps_plot<- apps_q2 %>% 
+  mutate(smartphone_ownership = fct_recode(smartphone_ownership,
+                                           "Android" = "android",
+                                           "iPhone" = "iphone")) %>% 
+  ggplot(aes(x=fct_rev(fct_infreq(apps_used)),y=..count../683))+
+  geom_bar(aes(fill=smartphone_ownership), width = 0.8,) +
+  geom_text(aes(label = scales::percent((..count..)/683, accuracy = 0.01)), 
+            stat = "count", hjust=-0.2) +
+   labs(title="Applications Used", 
+            y="Proportion of Digital Wellbeing Application Users",
+            x="",
+           fill = "Device") +
+  scale_y_continuous(expand = c(0,0), limits = c(0,0.61), labels=scales::percent)+
+   coord_cartesian(ylim = c(0,1)) +
+  coord_flip()+
+  theme_bw() + 
+  theme(panel.border = element_blank(),
+        legend.position = "bottom",
+        panel.grid.minor = element_blank(),
+        axis.text=element_text(size=11),
+        axis.title=element_text(size=11),
+        title = element_text(size = 12),
+        axis.line = element_line(colour = "black"),
+        axis.text.x = element_text(hjust = 1))
+apps_plot
+
+  # ggsave("figures/appsused.png", apps_plot, width =12, height=6, dpi=1200, units="in", device="png")
+```
+
+
+#Features used
+```{r}
+features_plot<- features %>%
+  mutate(smartphone_ownership = fct_recode(smartphone_ownership,
+                                           "Android" = "android",
+                                           "iPhone" = "iphone")) %>%
+  ggplot(aes(x=fct_rev(fct_infreq(features_used)),y=..count../683))+
+  geom_bar(aes(fill=smartphone_ownership), width = 0.8,) +
+  geom_text(aes(label = scales::percent((..count..)/683, accuracy = 0.01)), 
+            stat = "count", hjust=-0.2) +
+   labs(title="Features Used", 
+            y="Proportion of Digital Wellbeing Application Users",
+            x="",
+           fill = "Device") +
+  scale_y_continuous(expand = c(0,0), limits = c(0,0.8), labels=scales::percent) +
+  coord_cartesian(ylim = c(0,1)) +
+  coord_flip()+
+  theme_bw() + 
+   theme(panel.border = element_blank(),
+        legend.position = "bottom",
+        panel.grid.minor = element_blank(),
+        axis.text=element_text(size=11),
+        axis.title=element_text(size=11),
+        title = element_text(size = 12),
+        axis.line = element_line(colour = "black"),
+        axis.text.x = element_text(hjust = 1))
+
+features_plot
+
+# ggsave("figures/featuresused.png", features_plot, width =12, height=6, dpi=1200, units="in", device="png")
+```
+
+
+
+
+# 4. RQ 3 
+_"Do users of digital well-being applications report lower smartphone use than non-users?"_
+
+## Users vs Non-users (according to phone_minutes)
+Shown that there is little to no correlation between users spending less time on their phones than non-users.
+
+Because the SD is almost half of what the mean is for both users and non-users this shows that the data is spread out.
+```{r}
+#Initial table creation with phone_minutes and user_type
+user_type_minutes <- data %>% 
+  group_by(user_type) %>% 
+  select(c(user_type, phone_minutes))
+
+head(user_type_minutes)
+```
+
+
+## Figure 1: User_type against Phone_minutes
+
+```{r fig.width=8 fig.height= 5}
+raincloud_plot <- data %>% 
+# Line graph
+  ggplot(aes(y = phone_minutes, x = user_type, fill=user_type)) +
+  geom_flat_violin(position = position_nudge(x = .2, y = 0), alpha = .8) +
+  geom_point(aes(y = phone_minutes, color = user_type), position = position_jitter(width = .15), size = .5, alpha = 0.8) + 
+# Box Plot
+  geom_boxplot(width = .1, guides = FALSE, outlier.shape = NA, alpha = 0.5) +
+# Visual manipulations
+  expand_limits(x = 3, y = 4) + 
+  guides(fill = FALSE) +
+  labs(x = "Type of User", y = "Minutes per day on Smartphone", title = "Users vs Non-Users according to Smartphone Usage per Day", subtitle = "Comparison of smartphone usage between users and non-users of screen-time applications")+
+  guides(color=FALSE)+
+  coord_flip() +
+  theme_bw() 
+
+raincloud_plot
+
+ggsave("figures/user_type_minutes.pdf", width =10, height=8, dpi=800, units="in", device="pdf")
+```
+
+## T.test (phone_minutes and users)
+
+```{r}
+user_type_minutes_t_test <- t.test(phone_minutes ~ user_type, data = user_type_minutes, var.equal = FALSE)
+
+user_type_minutes_t_test
+```
+
+#Remove red line on axis
+```{r}
+ggthemr("chalk")
+```
+
+
+
+
+# RQ4: Do users of digital wellbeing applications or services perceive them to be useful and/or effective?
+
+#Integration likert
+```{r}
+levels=c(1,2,3,4,5,6,7)
+
+integration_likert <- data %>% 
+  filter(user_type =="user") %>% 
+  mutate(value_of_integration_frequency = factor(integration_integration_frequency_, levels, ordered=TRUE),
+         value_for_integration_integrated = factor(integration_integration_integrated_, levels, ordered=TRUE),
+         value_for_integration_rely = factor(integration_integration_rely_, levels, ordered=TRUE),
+         value_for_integration_continue = factor(integration_integration_continue_, levels, ordered=TRUE)) %>% 
+  dplyr::select(value_of_integration_frequency,  value_for_integration_integrated,  value_for_integration_rely,  value_for_integration_continue) %>% 
+  rename("I frequently use digital wellbeing applications and services" = value_of_integration_frequency,
+         "I have integrated digital wellbeing applications and services into my day to day habits" = value_for_integration_integrated,
+         "I rely on digital wellbeing applications and services to manage my time effectively" = value_for_integration_rely,
+         "I intend to continue using digital wellbeing applications and services in the future" = value_for_integration_continue)
+
+integration_likert<- likert::likert(as.data.frame(integration_likert))
+integration_likert
+
+integration_likert <- likert.bar.plot(integration_likert, center=4) + 
+  labs(y = "Proportion of Digital Wellbeing Application Users",
+       title = "Integration") +
+   scale_fill_manual(labels = c("Strongly Disagree", "2","3","4","5","6", "Strongly Agree"), values = c("#bf111d", "#ff5456","#ffa0a1","#e7eff6","#adcbe3","#4b86b4", "#2a4d69")) +
+  theme_bw() +
+  theme(legend.position="bottom", 
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        axis.line = element_line(colour = "black"),
+        axis.text.x = element_text(size = 12),
+        axis.title=element_text(size=12),
+        title = element_text(size = 20),
+        legend.text=element_text(size=10),
+        plot.title = element_text(size=16),
+        plot.caption = element_text(size=12),
+        axis.text.y = element_text(size = 12)) +   
+  guides(fill = guide_legend("",nrow = 1))
+
+
+integration_likert
+
+# ggsave("figures/likert1.png", integration_likert, width =12, height=6, dpi=1200, units="in", device="png")
+```
+
+
+#Info seeking likert
+```{r}
+motivation_info_seeking_likert <- data %>% 
+  filter(user_type =="user") %>% 
+  mutate(value_of_motivation_info_seeking_1_ = factor(motivation_motivation_info_seeking_1_, levels, ordered=TRUE),
+         value_for_motivation_info_seeking_2_ = factor(motivation_motivation_info_seeking_2_, levels, ordered=TRUE),
+         value_for_motivation_info_seeking_3_ = factor(motivation_motivation_info_seeking_3_, levels, ordered=TRUE),
+         value_for_motivation_info_seeking_4_ = factor(motivation_motivation_info_seeking_4_, levels, ordered=TRUE)) %>% 
+  dplyr::select(value_of_motivation_info_seeking_1_,  value_for_motivation_info_seeking_2_,  value_for_motivation_info_seeking_3_,  value_for_motivation_info_seeking_4_) %>% 
+  rename("I use digital wellbeing apps/services because I am curious and want to learn about my smartphone use." = value_of_motivation_info_seeking_1_,
+         "Digital wellbeing apps/services help me to quantify my overall device usage" = value_for_motivation_info_seeking_2_,
+         "Digital wellbeing apps/services help me to quantify my usage of particular categories of apps" = value_for_motivation_info_seeking_3_,
+         "Digital wellbeing apps/services help me to quantify my usage of specific apps" = value_for_motivation_info_seeking_4_)
+
+motivation_info_seeking_likert<- likert::likert(as.data.frame(motivation_info_seeking_likert))
+motivation_info_seeking_likert
+
+motivation_info_seeking_likert <- likert.bar.plot(motivation_info_seeking_likert, center=4) +
+  labs(y = "Proportion of Digital Wellbeing Application Users",
+       title = "Information Seeking") +
+  scale_fill_manual(labels = c("Strongly Disagree", "2","3","4","5","6", "Strongly Agree"), values = c("#bf111d", "#ff5456","#ffa0a1","#e7eff6","#adcbe3","#4b86b4", "#2a4d69")) +
+  theme_bw() +
+ theme(legend.position="bottom", 
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        axis.line = element_line(colour = "black"),
+        axis.text.x = element_text(size = 12),
+        axis.title=element_text(size=12),
+        title = element_text(size = 20),
+        legend.text=element_text(size=10),
+        plot.title = element_text(size=16),
+        plot.caption = element_text(size=12),
+        axis.text.y = element_text(size = 12)) +   
+  guides(fill = guide_legend("",nrow = 1))
+
+motivation_info_seeking_likert
+
+# ggsave("figures/likert2.png", motivation_info_seeking_likert, width =12, height=6, dpi=1200, units="in", device="png")
+
+```
+
+
+#Negative Outcome likert
+```{r}
+motivation_neg_outcomes_likert <- data %>% 
+  filter(user_type =="user") %>% 
+  mutate(value_of_motivation_motivation_neg_outcomes_1_ = factor(motivation_motivation_neg_outcomes_1_, levels, ordered=TRUE),
+         value_for_motivation_motivation_neg_outcomes_2_ = factor(motivation_motivation_neg_outcomes_2_, levels, ordered=TRUE),
+         value_for_motivation_motivation_neg_outcomes_3_ = factor(motivation_motivation_neg_outcomes_3_, levels, ordered=TRUE),
+         value_for_motivation_motivation_neg_outcomes_4_ = factor(motivation_motivation_neg_outcomes_4_, levels, ordered=TRUE)) %>% 
+  dplyr::select(value_of_motivation_motivation_neg_outcomes_1_,  value_for_motivation_motivation_neg_outcomes_2_,  value_for_motivation_motivation_neg_outcomes_3_,  value_for_motivation_motivation_neg_outcomes_4_) %>% 
+  rename("I am frustrated by the amount of time that I spend on my phone" = value_of_motivation_motivation_neg_outcomes_1_,
+         "My phone use can disrupt my focus in lectures (or class videos)" = value_for_motivation_motivation_neg_outcomes_2_,
+         "My phone use can disrupt my focus when studying" = value_for_motivation_motivation_neg_outcomes_3_,
+         "I use my phone when I should be doing other things" = value_for_motivation_motivation_neg_outcomes_4_)
+
+motivation_neg_outcomes_likert<- likert::likert(as.data.frame(motivation_neg_outcomes_likert))
+motivation_neg_outcomes_likert
+
+motivation_neg_outcomes_likert <- likert.bar.plot(motivation_neg_outcomes_likert, center=4) +
+  labs(y = "Proportion of Digital Wellbeing Application Users",
+       title = "Negative Outcomes") +
+   scale_fill_manual(labels = c("Strongly Disagree", "2","3","4","5","6", "Strongly Agree"), values = c("#bf111d", "#ff5456","#ffa0a1","#e7eff6","#adcbe3","#4b86b4", "#2a4d69")) +
+  theme_bw() +
+   theme(legend.position="bottom", 
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        axis.line = element_line(colour = "black"),
+        axis.text.x = element_text(size = 12),
+        axis.title=element_text(size=12),
+        title = element_text(size = 20),
+        legend.text=element_text(size=10),
+        plot.title = element_text(size=16),
+        plot.caption = element_text(size=12),
+        axis.text.y = element_text(size = 12)) +   
+  guides(fill = guide_legend("",nrow = 1))
+
+motivation_neg_outcomes_likert
+# ggsave("figures/likert3.png", motivation_neg_outcomes_likert, width =12, height=6, dpi=1200, units="in", device="png")
+
+```
+
+
+#Beahviour Alignment
+```{r}
+motivation_align_likert <- data %>% 
+  filter(user_type =="user") %>% 
+  mutate(value_of_motivation_motivation_align_1_ = factor(motivation_motivation_align_1_, levels, ordered=TRUE),
+         value_for_motivation_motivation_align_2_ = factor(motivation_motivation_align_2_, levels, ordered=TRUE),
+         value_for_motivation_motivation_align_3_ = factor(motivation_motivation_align_3_, levels, ordered=TRUE),
+         value_for_motivation_motivation_align_4_ = factor(motivation_motivation_align_4_, levels, ordered=TRUE)) %>% 
+  dplyr::select(value_of_motivation_motivation_align_1_,  value_for_motivation_motivation_align_2_,  value_for_motivation_motivation_align_3_,  value_for_motivation_motivation_align_4_) %>% 
+  rename("Digital wellbeing apps/services help with time management" = value_of_motivation_motivation_align_1_,
+         "Digital wellbeing apps/services support productivity" = value_for_motivation_motivation_align_2_,
+         "Digital wellbeing apps/services help with concentration on studies/work" = value_for_motivation_motivation_align_3_,
+         "Digital wellbeing apps/services help with the achievement of goals" = value_for_motivation_motivation_align_4_)
+
+motivation_align_likert<- likert::likert(as.data.frame(motivation_align_likert))
+motivation_align_likert
+
+motivation_align_likert <- likert.bar.plot(motivation_align_likert, center=4) +
+  labs(y = "Proportion of Digital Wellbeing Application Users",
+       title = "Behaviour Alignment") +
+  scale_fill_manual(labels = c("Strongly Disagree", "2","3","4","5","6", "Strongly Agree"), values = c("#bf111d", "#ff5456","#ffa0a1","#e7eff6","#adcbe3","#4b86b4", "#2a4d69")) +
+  theme_bw() +
+ theme(legend.position="bottom", 
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        axis.line = element_line(colour = "black"),
+        axis.text.x = element_text(size = 12),
+        axis.title=element_text(size=12),
+        title = element_text(size = 20),
+        legend.text=element_text(size=10),
+        plot.title = element_text(size=16),
+        plot.caption = element_text(size=12),
+        axis.text.y = element_text(size = 12)) +   
+  guides(fill = guide_legend("",nrow = 1))
+motivation_align_likert
+# ggsave("figures/likert4.png", motivation_align_likert, width =12, height=6, dpi=1200, units="in", device="png")
+
+```
+
+#Change behaviour likert
+```{r}
+motivation_change_likert <- data %>% 
+  filter(user_type =="user") %>% 
+  mutate(value_of_motivation_motivation_change_1_ = factor(motivation_motivation_change_1_, levels, ordered=TRUE),
+         value_for_motivation_motivation_change_2_ = factor(motivation_motivation_change_2_, levels, ordered=TRUE),
+         value_for_motivation_motivation_change_3_ = factor(motivation_motivation_change_3_, levels, ordered=TRUE),
+         value_for_motivation_motivation_change_4_ = factor(motivation_motivation_change_4_, levels, ordered=TRUE)) %>% 
+  dplyr::select(value_of_motivation_motivation_change_1_,  value_for_motivation_motivation_change_2_,  value_for_motivation_motivation_change_3_,  value_for_motivation_motivation_change_4_) %>% 
+  rename("Digital wellbeing apps/services are useful for helping me to change my behaviour" = value_of_motivation_motivation_change_1_,
+         "Digital wellbeing apps/services help to reduce excessive smartphone use" = value_for_motivation_motivation_change_2_,
+         "Digital wellbeing apps/services help me to not use my phone when I should be doing something else" = value_for_motivation_motivation_change_3_,
+         "Digital wellbeing apps/services help me to become the person I want to be" = value_for_motivation_motivation_change_4_)
+
+motivation_change_likert<- likert::likert(as.data.frame(motivation_change_likert))
+motivation_change_likert
+
+motivation_change_likert <- likert.bar.plot(motivation_change_likert, center=4) +
+  labs(y = "Proportion of Digital Wellbeing Application Users",
+       title = "Behaviour Change") +
+  scale_fill_manual(labels = c("Strongly Disagree", "2","3","4","5","6", "Strongly Agree"), values = c("#bf111d", "#ff5456","#ffa0a1","#e7eff6","#adcbe3","#4b86b4", "#2a4d69")) +
+  theme_bw() +
+ theme(legend.position="bottom", 
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        axis.line = element_line(colour = "black"),
+        axis.text.x = element_text(size = 12),
+        axis.title=element_text(size=12),
+        title = element_text(size = 20),
+        legend.text=element_text(size=10),
+        plot.title = element_text(size=16),
+        plot.caption = element_text(size=12),
+        axis.text.y = element_text(size = 12)) +   
+  guides(fill = guide_legend("",nrow = 1))
+
+motivation_change_likert
+
+# ggsave("figures/likert5.png", motivation_change_likert, width =12, height=6, dpi=1200, units="in", device="png")
+
+```
+
+
+
+
+
+
+
+#"Do users of digital well-being applications perceive them to be useful and/or effective?"
+
+```{r}
+user_rq4_likert <-  data %>% 
+  filter(user_type =="user") %>% 
+  mutate(value_for_outcomes_value_of_data_ = factor(outcomes_value_of_data_, levels, ordered=TRUE),
+         value_for_outcomes_value_for_change_ = factor(outcomes_value_for_change_, levels, ordered=TRUE),
+         value_for_outcomes_value_for_goals_ = factor(outcomes_value_for_goals_, levels, ordered=TRUE)) %>% 
+  dplyr::select(value_for_outcomes_value_of_data_, value_for_outcomes_value_for_change_, value_for_outcomes_value_for_goals_) %>% 
+  rename("I find the data provided by these applications to be interesting and useful." = value_for_outcomes_value_of_data_,
+         "I find these applications to be useful for helping me to change my behaviour." = value_for_outcomes_value_for_change_,
+         "I find these applications to be useful for helping me remain on task and focus on my work." = value_for_outcomes_value_for_goals_)
+
+user_rq4_likert<- likert::likert(as.data.frame(user_rq4_likert))
+user_rq4_likert
+```
+
+
+#Perceived outcomes
+```{r}
+ggthemr("chalk")
+user_rq4_likert <-  data %>% 
+  filter(user_type =="user") %>% 
+  mutate(value_for_outcomes_value_of_data_ = factor(outcomes_value_of_data_, levels, ordered=TRUE),
+         value_for_outcomes_value_for_change_ = factor(outcomes_value_for_change_, levels, ordered=TRUE),
+         value_for_outcomes_value_for_goals_ = factor(outcomes_value_for_goals_, levels, ordered=TRUE)) %>% 
+  dplyr::select(value_for_outcomes_value_of_data_, value_for_outcomes_value_for_change_, value_for_outcomes_value_for_goals_) %>% 
+  rename("I find the data provided by these applications to be interesting and useful." = value_for_outcomes_value_of_data_,
+         "I find these applications to be useful for helping me to change my behaviour." = value_for_outcomes_value_for_change_,
+         "I find these applications to be useful for helping me remain on task and focus on my work." = value_for_outcomes_value_for_goals_)
+
+user_rq4_likert<- likert::likert(as.data.frame(user_rq4_likert))
+user_rq4_likert
+
+
+user_rq4_likert <- likert.bar.plot(user_rq4_likert, center=4) +
+  labs(y = "Proportion of Digital Wellbeing Application Users",
+       title = "Perceived Outcomes of Digital Wellbeing Services") +
+ scale_fill_manual(labels = c("Strongly Disagree", "2","3","4","5","6", "Strongly Agree"), values = c("#bf111d", "#ff5456","#ffa0a1","#e7eff6","#adcbe3","#4b86b4", "#2a4d69")) +
+  theme_bw() +
+ theme(legend.position="bottom", 
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        axis.line = element_line(colour = "black"),
+        axis.text.x = element_text(size = 12),
+        axis.title=element_text(size=12),
+        title = element_text(size = 20),
+        legend.text=element_text(size=10),
+        plot.title = element_text(size=16),
+        plot.caption = element_text(size=12),
+        axis.text.y = element_text(size = 12)) +   
+  guides(fill = guide_legend("",nrow = 1))
+user_rq4_likert 
+
+# ggsave("figures/likert6.png", user_rq4_likert, width =12, height=6, dpi=1200, units="in", device="png")
+```
+
+```{r}
+user_integration <- user_df %>% 
+  select(integration, mot_info_seeking, mot_neg_outcomes, mot_align, mot_change)
+
+user_integration
+```
+## Analysis of Variance model(aov) vs Linear Regression Model(lm)
+
+```{r}
+user_lm = lm(integration ~ mot_info_seeking + mot_neg_outcomes + mot_align + mot_change, data = user_integration)
+
+summary(user_lm)
+```
+
+
+```{r}
+user_aov = aov(integration ~ mot_info_seeking + mot_neg_outcomes + mot_align + mot_change, data = user_integration)
+
+summary(user_aov)
+```
+As seem below mot_align and mot_change are different to lm() function above.
+```{r}
+lm.beta(user_lm)
+```
+
+```{r}
+stats::confint(user_lm)
+```
+## Correlation Matrics
+There appears to be a strong correlation between motivation alignment and motivation change for both users (0.82) and non-users (0.79). 
+
+### USERS
+The correlation between motivation for negative outcomes and integration is very low (0.1), showing... 
+
+```{r}
+user_df %>%
+  select(integration, mot_info_seeking, mot_neg_outcomes, mot_align, mot_change) %>%
+  as.matrix() %>%
+  Hmisc::rcorr(type = "pearson")
+```
+
+## Cronbach Alpha
+https://www.statisticshowto.com/cronbachs-alpha-spss/
+
+### USERS
+QUESTION 13
+```{r}
+question_13 <- user_df %>% 
+  select(integration_integration_continue_,
+         integration_integration_integrated_,
+         integration_integration_frequency_,
+         integration_integration_rely_) %>% 
+  alpha()
+
+question_13[c(1)]
+```
+
+```{r}
+question_13$total %>%
+ select(c(raw_alpha, mean, sd))
+```
+ 
+QUESTION 14
+```{r}
+question_14_1 <- user_df %>% 
+  select(motivation_motivation_info_seeking_1_,  
+         motivation_motivation_info_seeking_2_,  
+         motivation_motivation_info_seeking_3_,  
+         motivation_motivation_info_seeking_4_) %>% 
+  alpha()
+
+question_14_1[c(1)]
+```
+```{r}
+question_14_1$total %>%
+ select(c(raw_alpha, mean, sd))
+```
+
+```{r}
+user_df %>% 
+  select(motivation_motivation_neg_outcomes_1_,  
+         motivation_motivation_neg_outcomes_2_,  
+         motivation_motivation_neg_outcomes_3_,  
+         motivation_motivation_neg_outcomes_4_) %>% 
+  alpha()
+```
+
+```{r}
+user_df %>% 
+  select(motivation_motivation_align_1_, 
+         motivation_motivation_align_2_, 
+         motivation_motivation_align_3_, 
+         motivation_motivation_align_4_) %>% 
+  alpha()
+```
+
+```{r}
+user_df %>% 
+  select(motivation_motivation_change_1_,  
+         motivation_motivation_change_2_,  
+         motivation_motivation_change_3_,  
+         motivation_motivation_change_4_) %>% 
+  alpha()
+```
+
+# 6. RQ 5
+_"For non-users of digital well-being applications, what motivates intentions to use in the future?"_
+
+## Non-users intention of use in the future
+
+```{r}
+non_user_intentiont_use <- non_user_df %>% 
+  select(non_users_use_intention) %>% 
+  group_by(non_users_use_intention) %>%
+  summarise(intention_of_use=n())
+
+head(non_user_intentiont_use, 3)
+
+ggplot(data = non_user_intentiont_use,
+      mapping = aes(y = intention_of_use, x = non_users_use_intention))+
+ #Creating the bar graph
+ geom_bar(stat="identity",
+          fill = "#34495E")
+```
+
+### NON-USERS Correlation
+Very low correlation between motivation for negative outcomes and motivation for information seeking for non users (0.25).
+
+
+```{r}
+#options(scipen = 999)
+
+non_user_df %>%
+  select(non_mot_info_seeking, non_mot_neg_outcomes, non_mot_align,  non_change) %>%
+  as.matrix() %>% 
+  rcorr(type = "pearson") #%>% 
+ #print(., digits=3)
+
+```
+
+## NON-USERS
+
+Question 17
+```{r}
+non_user_df %>% 
+  select(non_motivation_non_motivation_info_seeking_1_,  
+         non_motivation_non_motivation_info_seeking_2_,  
+         non_motivation_non_motivation_info_seeking_3_,  
+         non_motivation_non_motivation_info_seeking_4_) %>% 
+  alpha()
+```
+
+```{r}
+non_user_df %>% 
+  select(non_motivation_non_motivation_neg_outcomes_1_,  
+         non_motivation_non_motivation_neg_outcomes_2_,  
+         non_motivation_non_motivation_neg_outcomes_3_,  
+         non_motivation_non_motivation_neg_outcomes_4_) %>% 
+  alpha()
+```
+
+```{r}
+non_user_df %>% 
+  select(non_motivation_non_motivation_align_1_, 
+         non_motivation_non_motivation_align_2_, 
+         non_motivation_non_motivation_align_3_, 
+         non_motivation_non_motivation_align_4_) %>% 
+  alpha()
+```
+
+```{r}
+non_user_df %>% 
+  select(non_motivation_non_motivation_change_1_, 
+         non_motivation_non_motivation_change_2_,  
+         non_motivation_non_motivation_change_3_, 
+         non_motivation_non_motivation_change_4_) %>% 
+  alpha()
+```
+
+## Non-User Linear Regression Model
+
+```{r}
+non_user_integration <- non_user_df %>% 
+  mutate(non_users_intention = ifelse(non_users_use_intention == "no",0,1)) %>% 
+  select(non_users_intention, non_mot_info_seeking, non_mot_neg_outcomes, non_mot_align,  non_change)
+  
+head(non_user_integration)
+```
+
+### Non-user generalized linear model
+
+```{r}
+non_user_glm = glm(non_users_intention ~ non_mot_info_seeking + non_mot_neg_outcomes + non_mot_align + non_change, data = non_user_integration, family = "binomial")
+
+summary(non_user_glm)
+```
+As seem below the values for each of them are different to the above lm() function. 
+```{r}
+lm.beta(non_user_glm)
+```
+
+```{r}
+stats::confint(non_user_glm)
+```
